@@ -61,16 +61,20 @@ def rel(dataset_distances, run_distances, metrics):
         print('Computing rel metrics')
         total_closest_distance = 0.0
         total_candidate_distance = 0.0
+
+        c = 0
         for true_distances, found_distances in zip(dataset_distances,
                                                    run_distances):
             for rdist, cdist in zip(true_distances, found_distances):
                 total_closest_distance += rdist
                 total_candidate_distance += cdist
+
+                c += 1
         if total_closest_distance < 0.01:
             metrics.attrs['rel'] = float("inf")
         else:
-            metrics.attrs['rel'] = total_candidate_distance / \
-                total_closest_distance
+            metrics.attrs['rel'] = 1-(c - total_candidate_distance) / \
+                (c - total_closest_distance)
     else:
         print("Found cached result")
     return metrics.attrs['rel']

@@ -4,6 +4,8 @@ import nmslib
 from ann_benchmarks.constants import INDEX_DIR
 from ann_benchmarks.algorithms.base import BaseANN
 
+from scipy.sparse import csr_matrix 
+import numpy as np
 
 class NmslibReuseIndex(BaseANN):
     @staticmethod
@@ -12,7 +14,7 @@ class NmslibReuseIndex(BaseANN):
 
     def __init__(self, metric, method_name, index_param, query_param):
         self._nmslib_metric = {
-            'angular': 'cosinesimil', 'euclidean': 'l2'}[metric]
+            'angular': 'cosinesimil', 'euclidean': 'l2', 'jaccard': 'jaccard_sparse'}[metric]
         self._method_name = method_name
         self._save_index = False
         self._index_param = NmslibReuseIndex.encode(index_param)
@@ -46,8 +48,26 @@ class NmslibReuseIndex(BaseANN):
                                      min(int(X.shape[0] * 0.0005), 1000))
 
         self._index = nmslib.init(
-            space=self._nmslib_metric, method=self._method_name)
-        self._index.addDataPointBatch(X)
+            space=self._nmslib_metric, method=self._method_name, data_type=nmslib.DataType.SPARSE_VECTOR)
+
+
+        row = []
+        col = []
+        read_num_ft = 0
+
+        for i, s in enumerate(X):
+            for e in s:
+                row.append(i)
+                col.append(e)
+                read_num_ft = max(read_num_ft, e+1)
+        
+        # print("here")
+        ft_mat = csr_matrix((np.array([1]*len(row)), (np.array(row), np.array(col))), 
+                         shape=(len(X), read_num_ft)) 
+        # print("there")
+        self._index.addDataPointBatch(ft_mat)
+
+        print("done")
 
         if os.path.exists(self._index_name):
             print('Loading index from file')
@@ -64,11 +84,13 @@ class NmslibReuseIndex(BaseANN):
             self._index.setQueryTimeParams(["efSearch=%s" % (ef)])
 
     def query(self, v, n):
-        ids, distances = self._index.knnQuery(v, n)
-        return ids
+        # ids, distances = self._index.knnQuery(v, n)
+        # return ids
+        return []
 
     def batch_query(self, X, n):
-        self.res = self._index.knnQueryBatch(X, n)
+        # self.res = self._index.knnQueryBatch(X, n)
+        self.res = []
 
     def get_batch_results(self):
         return [x for x, _ in self.res]
