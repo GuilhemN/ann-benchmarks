@@ -4,24 +4,23 @@ import nmslib
 from ann_benchmarks.constants import INDEX_DIR
 from ann_benchmarks.algorithms.base import BaseANN
 
-<<<<<<< HEAD
-from scipy.sparse import csr_matrix 
-import numpy as np
-
-=======
->>>>>>> 41b1194be32966b7c672cfa54f4664aaf00b1618
 class NmslibReuseIndex(BaseANN):
     @staticmethod
     def encode(d):
         return ["%s=%s" % (a, b) for (a, b) in d.items()]
 
-    def __init__(self, metric, method_name, index_param, query_param):
+    def __init__(self, metric, method_name, index_param, query_param, use_goldfinger=False):
+        print(index_param, query_param)
         self._metric = metric
-        self._nmslib_metric = {
-            'angular': 'cosinesimil', 'euclidean': 'l2', 'jaccard': 'jaccard_sparse'}[metric]
+        if metric == 'jaccard' and not use_goldfinger is False:
+            self._nmslib_metric = 'bit_jaccard'
+        else:            
+            self._nmslib_metric = {
+                'angular': 'cosinesimil', 'euclidean': 'l2', 'jaccard': 'jaccard_sparse'}[metric]
         self._method_name = method_name
         self._save_index = False
         self._index_param = NmslibReuseIndex.encode(index_param)
+        self._use_goldfinger = use_goldfinger
         if query_param is not False:
             self._query_param = NmslibReuseIndex.encode(query_param)
             self.name = ('Nmslib(method_name={}, index_param={}, '
@@ -45,6 +44,16 @@ class NmslibReuseIndex(BaseANN):
 
 
     def _sparse_convert_vector(self, v):
+        if not self._use_goldfinger is False:
+            length = self._use_goldfinger
+
+            sketch = ['0'] * length
+
+            for item in v:
+                sketch[(item*5) % length] = '1'
+            
+            return ' '.join(sketch)
+        
         return ' '.join([str(k) for k in v])
 
     def fit(self, X):
@@ -69,31 +78,7 @@ class NmslibReuseIndex(BaseANN):
             self._index = nmslib.init(
                 space=self._nmslib_metric, method=self._method_name)
 
-<<<<<<< HEAD
-        self._index = nmslib.init(
-            space=self._nmslib_metric, method=self._method_name, data_type=nmslib.DataType.SPARSE_VECTOR)
-
-
-        row = []
-        col = []
-        read_num_ft = 0
-
-        for i, s in enumerate(X):
-            for e in s:
-                row.append(i)
-                col.append(e)
-                read_num_ft = max(read_num_ft, e+1)
-        
-        # print("here")
-        ft_mat = csr_matrix((np.array([1]*len(row)), (np.array(row), np.array(col))), 
-                         shape=(len(X), read_num_ft)) 
-        # print("there")
-        self._index.addDataPointBatch(ft_mat)
-
-        print("done")
-=======
         self._index.addDataPointBatch(X)
->>>>>>> 41b1194be32966b7c672cfa54f4664aaf00b1618
 
         if os.path.exists(self._index_name):
             print('Loading index from file')
@@ -110,15 +95,6 @@ class NmslibReuseIndex(BaseANN):
             self._index.setQueryTimeParams(["efSearch=%s" % (ef)])
 
     def query(self, v, n):
-<<<<<<< HEAD
-        # ids, distances = self._index.knnQuery(v, n)
-        # return ids
-        return []
-
-    def batch_query(self, X, n):
-        # self.res = self._index.knnQueryBatch(X, n)
-        self.res = []
-=======
         if self._metric == "jaccard":
             v = self._sparse_convert_vector(v)
         ids, distances = self._index.knnQuery(v, n)
@@ -130,7 +106,6 @@ class NmslibReuseIndex(BaseANN):
             X = self._sparse_convert_matrix(X)
 
         self.res = self._index.knnQueryBatch(X, n)
->>>>>>> 41b1194be32966b7c672cfa54f4664aaf00b1618
 
     def get_batch_results(self):
         return [x for x, _ in self.res]
