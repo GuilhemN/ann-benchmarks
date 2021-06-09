@@ -13,7 +13,7 @@ class NmslibReuseIndex(BaseANN):
         print(index_param, query_param)
         self._metric = metric
         if metric == 'jaccard' and not use_goldfinger is False:
-            self._nmslib_metric = 'bit_jaccard'
+            self._nmslib_metric = 'jaccard_sparse_goldfinger'
         else:            
             self._nmslib_metric = {
                 'angular': 'cosinesimil', 'euclidean': 'l2', 'jaccard': 'jaccard_sparse'}[metric]
@@ -39,23 +39,6 @@ class NmslibReuseIndex(BaseANN):
         if not os.path.exists(d):
             os.makedirs(d)
 
-    def _sparse_convert_matrix(self, X):
-        return [self._sparse_convert_vector(x) for x in X]
-
-
-    def _sparse_convert_vector(self, v):
-        if not self._use_goldfinger is False:
-            length = self._use_goldfinger
-
-            sketch = ['0'] * length
-
-            for item in v:
-                sketch[(item*5) % length] = '1'
-            
-            return ' '.join(sketch)
-        
-        return ' '.join([str(k) for k in v])
-
     def fit(self, X):
         if self._method_name == 'vptree':
             # To avoid this issue: terminate called after throwing an instance
@@ -69,11 +52,15 @@ class NmslibReuseIndex(BaseANN):
 
         if self._metric == "jaccard":
             # Pass sets as strings since couldn't get SPARSE_VECTOR to work so far
+            if not self._use_goldfinger is False:
+                space_params = {'nb_bits': self._use_goldfinger}
+                dist_uint_type = nmslib.DistType.UINT
+            else:
+                space_params = None
+                dist_uint_type = nmslib.DistType.INT
             self._index = nmslib.init(
-                space=self._nmslib_metric, method=self._method_name, data_type=nmslib.DataType.OBJECT_AS_STRING)
-            
-            # Convert to string
-            X = self._sparse_convert_matrix(X)
+                space=self._nmslib_metric, method=self._method_name, space_params=space_params, data_type=nmslib.DataType.DENSE_VECTOR, dist_uint_type=dist_uint_type)
+
         else:
             self._index = nmslib.init(
                 space=self._nmslib_metric, method=self._method_name)
@@ -95,16 +82,11 @@ class NmslibReuseIndex(BaseANN):
             self._index.setQueryTimeParams(["efSearch=%s" % (ef)])
 
     def query(self, v, n):
-        if self._metric == "jaccard":
-            v = self._sparse_convert_vector(v)
         ids, distances = self._index.knnQuery(v, n)
 
         return ids
 
     def batch_query(self, X, n):
-        if self._metric == "jaccard":
-            X = self._sparse_convert_matrix(X)
-
         self.res = self._index.knnQueryBatch(X, n)
 
     def get_batch_results(self):
