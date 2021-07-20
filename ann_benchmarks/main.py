@@ -12,6 +12,47 @@ import shutil
 import sys
 import traceback
 
+import re
+
+def glob2re(pat):
+    """Translate a shell PATTERN to a regular expression.
+
+    There is no way to quote meta-characters.
+    """
+
+    i, n = 0, len(pat)
+    res = ''
+    while i < n:
+        c = pat[i]
+        i = i+1
+        if c == '*':
+            #res = res + '.*'
+            res = res + '[^/]*'
+        elif c == '?':
+            #res = res + '.'
+            res = res + '[^/]'
+        elif c == '[':
+            j = i
+            if j < n and pat[j] == '!':
+                j = j+1
+            if j < n and pat[j] == ']':
+                j = j+1
+            while j < n and pat[j] != ']':
+                j = j+1
+            if j >= n:
+                res = res + '\\['
+            else:
+                stuff = pat[i:j].replace('\\','\\\\')
+                i = j+1
+                if stuff[0] == '!':
+                    stuff = '^' + stuff[1:]
+                elif stuff[0] == '^':
+                    stuff = '\\' + stuff
+                res = '%s[%s]' % (res, stuff)
+        else:
+            res = res + re.escape(c)
+    return res + '\Z(?ms)'
+
 from ann_benchmarks.datasets import get_dataset, DATASETS
 from ann_benchmarks.constants import INDEX_DIR
 from ann_benchmarks.algorithms.definitions import (get_definitions,
@@ -172,7 +213,7 @@ def main():
 
     if args.algorithm:
         logger.info(f'running only {args.algorithm}')
-        definitions = [d for d in definitions if d.algorithm == args.algorithm]
+        definitions = [d for d in definitions if re.match(glob2re(args.algorithm),d.algorithm)]
 
     if not args.local:
         # See which Docker images we have available

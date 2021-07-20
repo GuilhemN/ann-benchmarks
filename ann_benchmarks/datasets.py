@@ -479,6 +479,115 @@ def movielens20m(out_fn):
         f.readline()# ignore the header
         movielens(f, out_fn, ',')
 
+import gzip
+
+def amazon(out_fn):
+    fn = 'amazonmovies.txt'
+    local_fn = fn+'.gz'
+
+    url = 'https://snap.stanford.edu/data/movies.txt.gz'
+    download(url, local_fn)
+    with gzip.open(local_fn, 'rt', encoding='ascii', errors='ignore') as f:
+        X = []
+
+        products = dict()
+        users = dict()
+
+        lines = []
+        for l in f:
+            for prefix in ['product/productId', 'review/userId', 'review/score']:
+                if l.startswith(prefix):
+                    els = l.split(':')
+                    key = els[0]
+                    val = ''.join(els[1:]).strip()
+
+                    lines.append(val)
+        
+        for i in range(0, len(lines), 3):
+            productId = lines[i]
+            userId = lines[i+1]
+            score = float(lines[i+2])
+            if score < 3:
+                continue
+
+            if not productId in products:
+                products[productId] = len(products)
+            if not userId in users:
+                users[userId] = len(users)
+                X.append([])
+            X[users[userId]].append(products[productId])
+
+        X_train, X_test = train_test_split(numpy.array(X), test_size=500, dimension=len(products))
+        write_sparse_output(X_train, X_test, out_fn, 'jaccard', dimension)
+
+def filter_ratings(X, threshold=20):
+    return [s for s in X if len(s) >= threshold]
+
+def gowalla(out_fn):
+    fn = 'gowalla.txt'
+    local_fn = fn+'.gz'
+
+    url = 'https://snap.stanford.edu/data/loc-gowalla_edges.txt.gz'
+    download(url, local_fn)
+    with gzip.open(local_fn, 'r') as f:
+        X = []
+
+        users = {}
+        for l in f:
+            el = l.decode('UTF-8').split("\t")
+
+            a = int(el[0])
+            b = int(el[1])
+            rating = 5
+
+            if not a in users:
+                users[a] = len(users)
+                X.append([])
+            if not b in users:
+                users[b] = len(users)
+                X.append([])
+
+            X[users[a]].append(users[b])
+
+        X = filter_ratings(X) # We only keep users with >= 20 ratings
+
+        X_train, X_test = train_test_split(numpy.array(X), test_size=500, dimension=len(users))
+        write_sparse_output(X_train, X_test, out_fn, 'jaccard', len(users))
+
+def dblp(out_fn):
+    fn = 'dblp.txt'
+    local_fn = fn+'.gz'
+
+    url = 'https://snap.stanford.edu/data/bigdata/communities/com-dblp.ungraph.txt.gz'
+    download(url, local_fn)
+    with gzip.open(local_fn, 'r') as f:
+        X = []
+
+        users = {}
+        for l in f:
+            line = l.decode('UTF-8')
+            if line.startswith("#"):
+                continue
+
+            el = line.split("\t")
+
+            a = int(el[0])
+            b = int(el[1])
+
+            if not a in users:
+                users[a] = len(users)
+                X.append([])
+            if not b in users:
+                users[b] = len(users)
+                X.append([])
+
+            X[users[a]].append(users[b])
+
+        X = filter_ratings(X) # We only keep users with >= 20 ratings
+
+        X_train, X_test = train_test_split(numpy.array(X), test_size=500, dimension=len(users))
+        write_sparse_output(X_train, X_test, out_fn, 'jaccard', len(users))
+
 DATASETS = {
     'deep-image-96-angular': deep_image,
     'fashion-mnist-784-euclidean': fashion_mnist,
@@ -519,4 +628,7 @@ DATASETS = {
     'movielens1m-jaccard': movielens1m,
     'movielens10m-jaccard': movielens10m,
     'movielens20m-jaccard': movielens20m,
+    'amazon-jaccard': amazon,
+    'dblp-jaccard': dblp,
+    'gowalla-jaccard': gowalla,
 }

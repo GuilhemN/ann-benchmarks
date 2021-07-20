@@ -12,7 +12,7 @@ from ann_benchmarks.plotting.utils import (get_plot_label, compute_metrics,
                                            create_linestyles, create_pointset)
 from ann_benchmarks.results import (store_results, load_all_results,
                                     get_unique_algorithms)
-
+import json
 
 def create_plot(all_data, raw, x_scale, y_scale, xn, yn, fn_out, linestyles,
                 batch):
@@ -22,13 +22,15 @@ def create_plot(all_data, raw, x_scale, y_scale, xn, yn, fn_out, linestyles,
     labels = []
     plt.figure(figsize=(12, 9))
 
+    points = {}
+
     # Sorting by mean y-value helps aligning plots with labels
     def mean_y(algo):
         xs, ys, ls, axs, ays, als = create_pointset(all_data[algo], xn, yn)
         return -np.log(np.array(ys)).mean()
     # Find range for logit x-scale
     min_x, max_x = 1, 0
-    for algo in sorted(all_data.keys(), key=mean_y):
+    for algo in sorted(all_data.keys()): #, key=mean_y):
         xs, ys, ls, axs, ays, als = create_pointset(all_data[algo], xn, yn)
         min_x = min([min_x]+[x for x in xs if x > 0])
         max_x = max([max_x]+[x for x in xs if x < 1])
@@ -42,6 +44,16 @@ def create_plot(all_data, raw, x_scale, y_scale, xn, yn, fn_out, linestyles,
                                 ms=5, mew=2, lw=2, linestyle=linestyle,
                                 marker=marker)
         labels.append(algo)
+
+        points[algo] = {
+            'X': xs, 'Y': ys,
+        }
+
+    open(fn_out+'.json', 'w').write(json.dumps({
+        'x_axis': xn,
+        'y_axis': yn,
+        'points': points,
+    }))
 
     ax = plt.gca()
     ax.set_ylabel(ym['description'])

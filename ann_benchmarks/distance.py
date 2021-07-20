@@ -23,7 +23,7 @@ metrics = {
     # return 1 - jaccard similarity, because smaller distances are better.
     'jaccard': {
         'distance': lambda a, b: 1 - jaccard(a, b),
-        'distance_valid': lambda a: a < 1 - 1e-5
+        'distance_valid': lambda a: True
     },
     'euclidean': {
         'distance': lambda a, b: pdist(a, b, "euclidean"),

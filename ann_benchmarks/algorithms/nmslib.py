@@ -9,18 +9,19 @@ class NmslibReuseIndex(BaseANN):
     def encode(d):
         return ["%s=%s" % (a, b) for (a, b) in d.items()]
 
-    def __init__(self, metric, method_name, index_param, query_param, use_goldfinger=False):
+    def __init__(self, metric, method_name, index_param, query_param, sketching=False, sketchSize=None):
         print(index_param, query_param)
         self._metric = metric
-        if metric == 'jaccard' and not use_goldfinger is False:
-            self._nmslib_metric = 'jaccard_sparse_goldfinger'
+        if metric == 'jaccard' and not sketching is False:
+            self._nmslib_metric = 'jaccard_sparse_%s' % sketching
         else:            
             self._nmslib_metric = {
                 'angular': 'cosinesimil', 'euclidean': 'l2', 'jaccard': 'jaccard_sparse'}[metric]
         self._method_name = method_name
         self._save_index = False
         self._index_param = NmslibReuseIndex.encode(index_param)
-        self._use_goldfinger = use_goldfinger
+        self._sketching = sketching
+        self._sketchSize = sketchSize
         if query_param is not False:
             self._query_param = NmslibReuseIndex.encode(query_param)
             self.name = ('Nmslib(method_name={}, index_param={}, '
@@ -52,9 +53,12 @@ class NmslibReuseIndex(BaseANN):
 
         if self._metric == "jaccard":
             # Pass sets as strings since couldn't get SPARSE_VECTOR to work so far
-            if not self._use_goldfinger is False:
-                space_params = {'nb_bits': self._use_goldfinger}
+            if self._sketching == "goldfinger":
+                space_params = {'nb_bits': self._sketchSize}
                 dist_uint_type = nmslib.DistType.UINT
+            elif self._sketching == "fastsim":
+                space_params = {'sketch_size': self._sketchSize}
+                dist_uint_type = nmslib.DistType.INT
             else:
                 space_params = None
                 dist_uint_type = nmslib.DistType.INT

@@ -70,8 +70,8 @@ def rel(dataset_distances, run_distances, metrics):
                 total_candidate_distance += cdist
 
                 c += 1
-        if total_closest_distance < 0.01:
-            metrics.attrs['rel'] = float("inf")
+        if c-total_closest_distance < 0.01:
+            metrics.attrs['rel'] = 0
         else:
             metrics.attrs['rel'] = 1-(c - total_candidate_distance) / \
                 (c - total_closest_distance)
@@ -79,6 +79,28 @@ def rel(dataset_distances, run_distances, metrics):
         print("Found cached result")
     return metrics.attrs['rel']
 
+def quality(dataset_distances, run_distances, metrics):
+    if 'quality' not in metrics.attrs:
+        print('Computing rel metrics')
+        total_closest_distance = 0.0
+        total_candidate_distance = 0.0
+
+        c = 0
+        for true_distances, found_distances in zip(dataset_distances,
+                                                   run_distances):
+            for rdist, cdist in zip(true_distances, found_distances):
+                total_closest_distance += rdist
+                total_candidate_distance += cdist
+
+                c += 1
+        if abs(c-total_closest_distance) < 0.01:
+            metrics.attrs['quality'] = 1
+        else:
+            metrics.attrs['quality'] = (c - total_candidate_distance) / \
+                (c - total_closest_distance)
+    else:
+        print("Found cached result")
+    return metrics.attrs['quality']
 
 def queries_per_second(queries, attrs):
     return 1.0 / attrs["best_search_time"]
@@ -122,6 +144,11 @@ all_metrics = {
         "description": "Relative Error",
         "function": lambda true_distances, run_distances, metrics, run_attrs: rel(true_distances, run_distances, metrics),  # noqa
         "worst": float("inf")
+    },
+    "quality": {
+        "description": "Quality",
+        "function": lambda true_distances, run_distances, metrics, run_attrs: quality(true_distances, run_distances, metrics),  # noqa
+        "worst": -float("inf")
     },
     "qps": {
         "description": "Queries per second (1/s)",
