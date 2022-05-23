@@ -89,6 +89,8 @@ def quality(dataset_distances, run_distances, metrics):
         for true_distances, found_distances in zip(dataset_distances,
                                                    run_distances):
             for rdist, cdist in zip(true_distances, found_distances):
+                if cdist == float("inf"):
+                    cdist = 1
                 total_closest_distance += rdist
                 total_candidate_distance += cdist
 
@@ -148,7 +150,7 @@ all_metrics = {
     "quality": {
         "description": "Quality",
         "function": lambda true_distances, run_distances, metrics, run_attrs: quality(true_distances, run_distances, metrics),  # noqa
-        "worst": -float("inf")
+        "worst": -float("inf"),
     },
     "qps": {
         "description": "Queries per second (1/s)",
